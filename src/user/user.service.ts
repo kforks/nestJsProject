@@ -1,38 +1,43 @@
 import {Injectable} from "@nestjs/common";
 import {PrismaService} from "../prisma/prisma.service";
 import {User} from "@prisma/client";
+import * as argon from "argon2";
 
 @Injectable()
 export class UserService {
     constructor(private prisma: PrismaService) {}
 
-    async findById(id: number): Promise<User> {
+    // async findById(id: number): Promise<User> {
+    //     try {
+    //         const user = await this.prisma.user.findUnique({
+    //             where: {
+    //                 id: id
+    //             }
+    //         })
+    //         delete user.hash;
+    //         return user;
+    //     } catch (e) {
+    //         return e
+    //     }
+    // }
+
+    async findByIds(ids: string[]): Promise<any[]> {
+        let idsArray = ids[0].split(',');
         try {
-            const user = await this.prisma.user.findUnique({
-                where: {
-                    id: id
-                }
-            })
-            delete user.hash;
-            return user;
+            let users = [];
+            for (let id of idsArray) {
+                let user = await this.prisma.user.findUnique({
+                    where: {
+                        id: Number(id)
+                    }
+                })
+                users.push(user)
+            }
+            return users
         } catch (e) {
             return e
         }
     }
-
-
-    // async upsertBulk(body: {email: string, password: string }): Promise<User[]> {
-    //     const createMany = await this.prisma.user.createMany({
-    //         data: [
-    //             { firstName: 'Bob', email: 'bob@prisma.io' },
-    //             { firstName: 'Bobo', email: 'bob@prisma.io' },
-    //             { firstName: 'Yewande', email: 'yewande@prisma.io' },
-    //             { firstName: 'Angelique', email: 'angelique@prisma.io'},
-    //         ],
-    //         skipDuplicates: true, // Skip 'Bobo'
-    //     })
-    //     return createMany
-    // }
 
     async deleteUserById(
         userId: number,
@@ -54,6 +59,8 @@ export class UserService {
     }
 
     async upsert(body: UserData): Promise<Partial<User>> {
+        console.log(body)
+
         const upsertUser = await this.prisma.user.upsert({
             where: {
                 email: body.email,
@@ -64,15 +71,17 @@ export class UserService {
             create: {
                 email: body.email,
                 firstName: body.firstName,
+                hash: String(argon.hash(body.password))
             },
         })
-
+        delete upsertUser.hash
         return upsertUser;
     }
 }
 
 export interface UserData {
     email: string,
-    firstName: string,
-    lastName: string
+    password?: string,
+    firstName?: string,
+    lastName?: string
 }
